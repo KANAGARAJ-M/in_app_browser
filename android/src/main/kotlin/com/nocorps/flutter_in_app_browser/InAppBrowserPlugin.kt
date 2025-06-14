@@ -1,18 +1,22 @@
-package com.nocorps.in_app_browser
+package com.nocorps.flutter_in_app_browser
 
 import android.content.Context
+import android.graphics.Bitmap
 import android.view.View
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.webkit.WebChromeClient
 import io.flutter.embedding.engine.plugins.FlutterPlugin
+import io.flutter.plugin.common.BinaryMessenger
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
+import io.flutter.plugin.common.MethodChannel.MethodCallHandler
+import io.flutter.plugin.common.MethodChannel.Result
 import io.flutter.plugin.common.StandardMessageCodec
 import io.flutter.plugin.platform.PlatformView
 import io.flutter.plugin.platform.PlatformViewFactory
 
-class InAppBrowserPlugin: FlutterPlugin, MethodChannel.MethodCallHandler {
+class InAppBrowserPlugin: FlutterPlugin, MethodCallHandler {
   private lateinit var channel: MethodChannel
 
   override fun onAttachedToEngine(binding: FlutterPlugin.FlutterPluginBinding) {
@@ -22,7 +26,7 @@ class InAppBrowserPlugin: FlutterPlugin, MethodChannel.MethodCallHandler {
       "com.nocorps.in_app_browser/webview", WebViewFactory(binding.binaryMessenger))
   }
 
-  override fun onMethodCall(call: MethodCall, result: MethodChannel.Result) {
+  override fun onMethodCall(call: MethodCall, result: Result) {
     when (call.method) {
       "getPlatformVersion" -> result.success("Android ${android.os.Build.VERSION.RELEASE}")
       else -> result.notImplemented()
@@ -46,10 +50,10 @@ class FlutterWebView(
   messenger: BinaryMessenger,
   id: Int,
   creationParams: Map<String?, Any?>?
-) : PlatformView, MethodChannel.MethodCallHandler {
+) : PlatformView, MethodCallHandler {
   private val webView: WebView = WebView(context)
   private val methodChannel: MethodChannel = MethodChannel(messenger, "com.nocorps.in_app_browser/webview_$id")
-
+  
   init {
     methodChannel.setMethodCallHandler(this)
     
@@ -66,13 +70,11 @@ class FlutterWebView(
     
     webView.webViewClient = object : WebViewClient() {
       override fun onPageStarted(view: WebView, url: String, favicon: Bitmap?) {
-        methodChannel.invokeMethod("onLoadingStateChanged", mapOf("isLoading" to true))
-        methodChannel.invokeMethod("onUrlChanged", mapOf("url" to url))
+        methodChannel.invokeMethod("onPageStarted", mapOf("url" to url))
       }
 
       override fun onPageFinished(view: WebView, url: String) {
-        methodChannel.invokeMethod("onLoadingStateChanged", mapOf("isLoading" to false))
-        methodChannel.invokeMethod("onUrlChanged", mapOf("url" to url))
+        methodChannel.invokeMethod("onPageFinished", mapOf("url" to url))
         webView.evaluateJavascript("document.title") { title ->
           val processedTitle = title?.replace("\"", "") ?: ""
           methodChannel.invokeMethod("onTitleChanged", mapOf("title" to processedTitle))
@@ -118,7 +120,7 @@ class FlutterWebView(
     webView.destroy()
   }
 
-  override fun onMethodCall(call: MethodCall, result: MethodChannel.Result) {
+  override fun onMethodCall(call: MethodCall, result: Result) {
     when (call.method) {
       "loadUrl" -> {
         val url = call.argument<String>("url")

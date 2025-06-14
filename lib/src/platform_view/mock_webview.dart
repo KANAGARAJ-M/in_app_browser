@@ -2,12 +2,12 @@ import 'package:flutter/material.dart';
 import '../in_app_browser_settings.dart';
 import 'platform_view_factory.dart';
 
-class DesktopWebView extends StatefulWidget {
+class MockWebView extends StatefulWidget {
   final String initialUrl;
   final InAppBrowserSettings settings;
   final WebViewCreatedCallback? onWebViewCreated;
 
-  const DesktopWebView({
+  const MockWebView({
     super.key,
     required this.initialUrl,
     required this.settings,
@@ -15,16 +15,16 @@ class DesktopWebView extends StatefulWidget {
   });
 
   @override
-  State<DesktopWebView> createState() => _DesktopWebViewState();
+  State<MockWebView> createState() => _MockWebViewState();
 }
 
-class _DesktopWebViewState extends State<DesktopWebView> {
-  late final DesktopWebViewController _controller;
-  
+class _MockWebViewState extends State<MockWebView> {
+  late final MockWebViewController _controller;
+
   @override
   void initState() {
     super.initState();
-    _controller = DesktopWebViewController(widget.initialUrl);
+    _controller = MockWebViewController();
     if (widget.onWebViewCreated != null) {
       widget.onWebViewCreated!(_controller);
     }
@@ -32,27 +32,18 @@ class _DesktopWebViewState extends State<DesktopWebView> {
 
   @override
   Widget build(BuildContext context) {
-    // For desktop, we need platform-specific implementations
-    // This is a placeholder that shows a message until native implementation is added
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const Icon(Icons.web, size: 48),
-          const SizedBox(height: 16),
-          Text('Loading: ${widget.initialUrl}'),
-          const SizedBox(height: 16),
-          const Text('Desktop support requires platform-specific implementation'),
-        ],
+    return Container(
+      color: Colors.white,
+      child: Center(
+        child: Text('Mock WebView: ${widget.initialUrl}'),
       ),
     );
   }
 }
 
-class DesktopWebViewController {
-  final String initialUrl;
-  String _currentUrl;
-  final String _title = 'Desktop Browser';
+class MockWebViewController {
+  String _currentUrl = '';
+  final String _title = 'Mock Page';
   bool _canGoBack = false;
   bool _canGoForward = false;
   
@@ -62,8 +53,8 @@ class DesktopWebViewController {
   Function(double)? onProgressChanged;
   Function(String)? onTitleChanged;
 
-  DesktopWebViewController(this.initialUrl) : _currentUrl = initialUrl {
-    // Simulate loading
+  MockWebViewController() {
+    // Simulate progress reporting
     Future.delayed(const Duration(milliseconds: 100), () {
       if (onProgressChanged != null) onProgressChanged!(0.3);
     });
@@ -73,13 +64,13 @@ class DesktopWebViewController {
     });
     
     Future.delayed(const Duration(milliseconds: 300), () {
-      if (onPageStarted != null) onPageStarted!(initialUrl);
+      if (onPageStarted != null) onPageStarted!('https://example.com');
     });
     
     Future.delayed(const Duration(milliseconds: 500), () {
       if (onProgressChanged != null) onProgressChanged!(1.0);
-      if (onPageFinished != null) onPageFinished!(initialUrl);
-      if (onTitleChanged != null) onTitleChanged!('Page: $initialUrl');
+      if (onPageFinished != null) onPageFinished!('https://example.com');
+      if (onTitleChanged != null) onTitleChanged!('Example Domain');
     });
   }
 
@@ -118,13 +109,13 @@ class DesktopWebViewController {
   Future<void> goForward() async {
     if (_canGoForward) {
       _canGoForward = false;
-      _currentUrl = initialUrl;
+      _currentUrl = 'https://example.com';
       
       if (onPageStarted != null) onPageStarted!(_currentUrl);
       if (onProgressChanged != null) onProgressChanged!(0.5);
       await Future.delayed(const Duration(milliseconds: 200));
       if (onPageFinished != null) onPageFinished!(_currentUrl);
-      if (onTitleChanged != null) onTitleChanged!('Page: $initialUrl');
+      if (onTitleChanged != null) onTitleChanged!('Example Domain');
       
       _canGoBack = true;
     }
@@ -147,6 +138,6 @@ class DesktopWebViewController {
   Future<String> getTitle() async => _title;
 
   Future<String> evaluateJavascript(String javascript) async {
-    return '{"result": "Desktop WebView JavaScript not implemented"}';
+    return '{"result": "mock result"}';
   }
 }

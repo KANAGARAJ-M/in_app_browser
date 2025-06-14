@@ -47,9 +47,46 @@ class _AndroidWebViewState extends State<AndroidWebView> {
 
 class AndroidWebViewController {
   final MethodChannel _channel;
+  
+  // Callbacks
+  Function(String)? onPageStarted;
+  Function(String)? onPageFinished;
+  Function(double)? onProgressChanged;
+  Function(String)? onTitleChanged;
 
   AndroidWebViewController(int id) 
-      : _channel = MethodChannel('com.nocorps.in_app_browser/webview_$id');
+      : _channel = MethodChannel('com.nocorps.in_app_browser/webview_$id') {
+    _channel.setMethodCallHandler(_handleMethodCall);
+  }
+  
+  Future<dynamic> _handleMethodCall(MethodCall call) async {
+    switch (call.method) {
+      case 'onPageStarted':
+        final String url = call.arguments['url'];
+        if (onPageStarted != null) {
+          onPageStarted!(url);
+        }
+        break;
+      case 'onPageFinished':
+        final String url = call.arguments['url'];
+        if (onPageFinished != null) {
+          onPageFinished!(url);
+        }
+        break;
+      case 'onProgressChanged':
+        final double progress = call.arguments['progress'];
+        if (onProgressChanged != null) {
+          onProgressChanged!(progress);
+        }
+        break;
+      case 'onTitleChanged':
+        final String title = call.arguments['title'];
+        if (onTitleChanged != null) {
+          onTitleChanged!(title);
+        }
+        break;
+    }
+  }
 
   Future<void> loadUrl(String url) async {
     await _channel.invokeMethod('loadUrl', {'url': url});
@@ -83,7 +120,8 @@ class AndroidWebViewController {
     return await _channel.invokeMethod('getTitle') ?? '';
   }
 
-  Future<void> evaluateJavascript(String javascript) async {
-    await _channel.invokeMethod('evaluateJavascript', {'javascript': javascript});
+  Future<String> evaluateJavascript(String javascript) async {
+    return await _channel.invokeMethod('evaluateJavascript', 
+        {'javascript': javascript}) ?? '';
   }
 }

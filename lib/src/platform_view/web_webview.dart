@@ -33,9 +33,10 @@ class _WebWebViewState extends State<WebWebView> {
       ..style.border = 'none'
       ..style.height = '100%'
       ..style.width = '100%'
-      ..allowFullscreen = widget.settings.allowFullscreen;
-
-    // Register the view
+      ..allowFullscreen = true;
+    
+    // Using registerViewFactory through JS interop
+    // ignore: undefined_prefixed_name
     ui.platformViewRegistry.registerViewFactory(
       _viewType, 
       (int viewId) => _iframeElement
@@ -57,23 +58,90 @@ class _WebWebViewState extends State<WebWebView> {
 
 class WebWebViewController {
   final html.IFrameElement _iframeElement;
+  
+  // Callbacks
+  Function(String)? onPageStarted;
+  Function(String)? onPageFinished;
+  Function(double)? onProgressChanged;
+  Function(String)? onTitleChanged;
 
-  WebWebViewController(this._iframeElement);
+  WebWebViewController(this._iframeElement) {
+    _setupListeners();
+  }
+  
+  void _setupListeners() {
+    _iframeElement.onLoad.listen((event) {
+      if (onPageFinished != null) {
+        onPageFinished!(_iframeElement.src ?? '');
+      }
+      if (onProgressChanged != null) {
+        onProgressChanged!(1.0);
+      }
+      _updateTitle();
+    });
+    
+    // We need to simulate some events that aren't directly available in iframes
+    if (onProgressChanged != null) {
+      // Simulate progress
+      Future.delayed(const Duration(milliseconds: 100), () {
+        onProgressChanged!(0.3);
+      });
+      Future.delayed(const Duration(milliseconds: 300), () {
+        onProgressChanged!(0.7);
+      });
+    }
+    
+    if (onPageStarted != null) {
+      Future.delayed(const Duration(milliseconds: 50), () {
+        onPageStarted!(_iframeElement.src ?? '');
+      });
+    }
+  }
+  
+  void _updateTitle() {
+    try {
+      // This is the safer approach for getting document title
+      final title = html.document.title;
+      if (onTitleChanged != null) {
+        onTitleChanged!(title);
+      }
+    } catch (e) {
+      // Title might not be accessible due to CORS
+      if (onTitleChanged != null) {
+        onTitleChanged!('');
+      }
+    }
+  }
 
-  void loadUrl(String url) {
+  Future<void> loadUrl(String url) async {
+    if (onPageStarted != null) {
+      onPageStarted!(url);
+    }
+    if (onProgressChanged != null) {
+      onProgressChanged!(0.1);
+    }
     _iframeElement.src = url;
   }
 
-  void goBack() {
+  Future<void> goBack() async {
     html.window.history.back();
   }
 
-  void goForward() {
+  Future<void> goForward() async {
     html.window.history.forward();
   }
 
-  void reload() {
-    _iframeElement.src = _iframeElement.src;
+  Future<void> reload() async {
+    final currentUrl = _iframeElement.src;
+    if (currentUrl != null) {
+      if (onPageStarted != null) {
+        onPageStarted!(currentUrl);
+      }
+      if (onProgressChanged != null) {
+        onProgressChanged!(0.1);
+      }
+      _iframeElement.src = currentUrl;
+    }
   }
 
   Future<bool> canGoBack() async {
@@ -89,10 +157,21 @@ class WebWebViewController {
   }
 
   Future<String> getTitle() async {
-    return ''; // Not reliably accessible from iframes
+    try {
+      return html.document.title;
+    } catch (e) {
+      return '';
+    }
   }
 
-  Future<void> evaluateJavascript(String javascript) async {
-    // Not safely possible with iframes due to security restrictions
+  Future<String> evaluateJavascript(String javascript) async {
+    try {
+      // Using callMethod approach for JS evaluation
+      // ignore: undefined_method
+      final result = html.window.callMethod('eval', [javascript]);
+      return result?.toString() ?? '';
+    } catch (e) {
+      return '{"error": "JavaScript evaluation failed due to security restrictions"}';
+    }
   }
 }
